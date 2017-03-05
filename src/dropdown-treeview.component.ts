@@ -1,9 +1,10 @@
 ﻿import {
-    Component, EventEmitter, ViewChild, ElementRef,
+    Component, EventEmitter,
     Input, Output, OnChanges, SimpleChange, HostListener
 } from '@angular/core';
 import * as _ from 'lodash';
 import { TreeItem } from './treeview.component';
+import { DropdownTreeviewService, Resource } from './dropdown-treeview.service';
 
 class FilterTreeItem extends TreeItem {
     refItem: TreeItem;
@@ -46,27 +47,20 @@ export interface DropdownTreeviewConfig {
     isShowFilter?: boolean;
     isShowAllCheckBox?: boolean;
     isShowCollapseExpand?: boolean;
-    headerText?: string;
-    allText?: string;
-    noSelectText?: string;
-    moreSelectText?: string;
+    resource?: Resource;
 }
 
 export let DefaultConfig: DropdownTreeviewConfig = {
     isShowAllCheckBox: true,
     isShowFilter: false,
-    isShowCollapseExpand: false,
-    headerText: 'All',
-    allText: 'All',
-    noSelectText: 'Select options',
-    moreSelectText: ' selected'
+    isShowCollapseExpand: false
 };
 
 @Component({
     selector: 'leo-dropdown-treeview',
     template: `
 <div class="dropdown" [class.open]="isOpen">
-    <button class="btn btn-secondary dropdown-toggle" #dropdownButton type="button" (click)="toggleOpen()"
+    <button class="btn btn-secondary dropdown-toggle" type="button" (click)="onButtonClick($event)"
     aria-haspopup="true" aria-expanded="false">
         {{text}}
     </button>
@@ -144,24 +138,34 @@ export let DefaultConfig: DropdownTreeviewConfig = {
 })
 
 export class DropdownTreeviewComponent implements OnChanges {
-    @ViewChild('dropdownButton') dropdownButton: ElementRef;
     @Input() items: TreeItem[];
     @Input() config = DefaultConfig;
     @Output() hide = new EventEmitter();
     @Output() selectedChange = new EventEmitter<any[]>();
-    allItem = new TreeItem(this.config.headerText);
+    allItem: TreeItem;
     isOpen = false;
-    text = this.config.allText;
+    text: string;
     filterText: string;
     filterItems: TreeItem[];
 
-    @HostListener('keyup.esc') keyupEsc() {
+    constructor(
+        private service: DropdownTreeviewService
+    ) {
+        const resource = this.service.getResource();
+        this.allItem = new TreeItem(resource.headerText);
+        this.text = resource.allText;
+        this.service.languageChange.subscribe(() => {
+            const isAllChecked = this.allItem.checked;
+            const checkedItems = this.getCheckedItems();
+            this.updateText(isAllChecked, checkedItems);
+        });
+    }
+
+    @HostListener('keyup.esc') onKeyupEsc() {
         this.isOpen = false;
     }
-    @HostListener('document:click', ['$event']) onDocumentClick(event: MouseEvent) {
-        if (event.target !== this.dropdownButton.nativeElement) {
-            this.isOpen = false;
-        }
+    @HostListener('document:click') onDocumentClick() {
+        this.isOpen = false;
     }
 
     get hasItems(): boolean {
@@ -180,9 +184,10 @@ export class DropdownTreeviewComponent implements OnChanges {
             } else {
                 this.config = _.defaults({}, DefaultConfig);
             }
-            this.allItem.text = this.config.headerText;
+            const resource = this.service.getResource();
+            this.allItem.text = resource.headerText;
             if (this.allItem.checked) {
-                this.text = this.config.allText;
+                this.text = resource.allText;
             }
         }
 
@@ -193,16 +198,11 @@ export class DropdownTreeviewComponent implements OnChanges {
         }
     }
 
-    toggleOpen() {
+    onButtonClick(event: MouseEvent) {
+        event.stopPropagation();
         this.isOpen = !this.isOpen;
         if (!this.isOpen) {
             this.hide.emit();
-        }
-    }
-
-    documentClick(event: MouseEvent) {
-        if (event.target !== this.dropdownButton.nativeElement) {
-            this.isOpen = false;
         }
     }
 
@@ -259,7 +259,6 @@ export class DropdownTreeviewComponent implements OnChanges {
         return checkedItems;
     }
 
-
     private onAfterSelectedChange() {
         let isAllChecked = true;
         for (let i = 0; i < this.items.length; i++) {
@@ -269,20 +268,25 @@ export class DropdownTreeviewComponent implements OnChanges {
             }
         }
         const checkedItems = this.getCheckedItems();
-        if (isAllChecked) {
-            this.text = this.config.allText;
-        } else {
-            if (checkedItems.length === 0) {
-                this.text = this.config.noSelectText;
-            } else if (checkedItems.length === 1) {
-                this.text = checkedItems[0].text;
-            } else {
-                this.text = `${checkedItems.length} ${this.config.moreSelectText}`;
-            }
-        }
+        this.updateText(isAllChecked, checkedItems);
 
         const values = checkedItems.map(item => item.value);
         this.selectedChange.emit(values);
+    }
+
+    private updateText(isAllChecked: boolean, checkedItems: TreeItem[]) {
+        const resource = this.service.getResource();
+        if (isAllChecked) {
+            this.text = resource.allText;
+        } else {
+            if (checkedItems.length === 0) {
+                this.text = resource.noSelectText;
+            } else if (checkedItems.length === 1) {
+                this.text = checkedItems[0].text;
+            } else {
+                this.text = `${checkedItems.length} ${resource.moreSelectText}`;
+            }
+        }
     }
 
     private updateFilterItems() {

@@ -92,9 +92,7 @@ export class AppComponent {
     bookValue: number[];
     bookConfig: DropdownTreeviewConfig = {
         isShowFilter: true,
-        isShowCollapseExpand: true,
-        noSelectText: 'Select categories',
-        moreSelectText: 'categories selected'
+        isShowCollapseExpand: true
     };
 
     cities: City[];
@@ -104,11 +102,7 @@ export class AppComponent {
     itemValue: any[];
     itemConfig: DropdownTreeviewConfig = {
         isShowFilter: true,
-        isShowAllCheckBox: true,
-        noSelectText: 'Select items',
-        moreSelectText: 'items selected',
-        allText: 'All selected',
-        headerText: 'All items',
+        isShowAllCheckBox: true
     };
 
     bookItems2: TreeItem[];
